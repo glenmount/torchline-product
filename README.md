@@ -13,3 +13,7 @@ ASK → DECIDE → ACT (v0) → RECORD. No source, no ship. Privacy by design. D
 
 **Docs:** see /docs
 **Code:** see /trident-app and /sentinel-kits, shared components in /torchline-core
+
+---
+⚠️ **Note:** This branch (`reset/scaffold`) is intentionally broken.  
+Tests are red until you implement `fee_math.py` as described in Issues.  
