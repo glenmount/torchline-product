@@ -4,7 +4,7 @@
 
 **North Star:** Rebuild aged care’s trust layer as a sovereign, receipts-first system that gives families zero-click clarity and lifts residents’ Dignity Minutes (DM%). Everything ships with dates, sources, and guardrails.
 
-**Branches: main (protected), reset/scaffold (broken tests for pilgrims), init/ignition (reference).**
+**Branches:** `main` (protected), `reset/scaffold` (arena — tests red by design).  
 
 ## Products
 - **TRIDENT (Families):** Source-linked copilot for fees/rights/safety with date-aware answers and a deterministic fee engine.
