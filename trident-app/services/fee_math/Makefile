@@ -1,9 +1,13 @@
-.PHONY: test run-fee-math
+.PHONY: test path
 
+# Use whatever python is on PATH; CI pins Python anyway
+PY ?= python3
+
+# Quick sanity so devs see where they are
+path:
+	@echo "pwd: $$(pwd)"; which $(PY) || true
+
+# Run tests via the interpreter (no fragile activate paths)
 test:
-	@cd trident-app/services/fee_math && . ../../../../.venv/bin/activate && pytest -q
-
-run-fee-math:
-	@cd trident-app/services/fee_math && \
-	. ../../../../.venv/bin/activate && \
-	python fee_math.py --rad=$(rad) --mpir=$(mpir)
+	@$(MAKE) path
+	@$(PY) -m pytest -q
