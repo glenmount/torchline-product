@@ -1,0 +1,11 @@
+Title,Description,Project,Type,Acceptance Criteria
+TRIDENT: Fee-Math Service,"Implement RAD↔DAP, partial RAD, caps; MPIR is input; receipts JSON + CLI.",TRIDENT,EPIC,"±$0.01 on 12 tests; <200ms; idempotent 5×; no network calls."
+Story: rounding harness,"Decimal half-up to $0.01; unit tests near-cent edges.",TRIDENT,STORY,"All rounding tests pass."
+Story: receipt printer,"Deterministic JSON receipt incl. inputs/formula/path/result.",TRIDENT,STORY,"Byte-identical outputs 5×."
+TRIDENT: Corpus & Registry,"Harvest 10→150 homes; registry with SHA-256; staleness flags.",TRIDENT,EPIC,"Each home >=4 docs; QA sheet complete."
+Story: doc coverage dashboard,"Simple CSV/JSON coverage + missing items list.",TRIDENT,STORY,"Dashboard shows % coverage per home."
+TRIDENT: Retrieval & Templates,"Date-aware chunking + deterministic templates.",TRIDENT,EPIC,"50-Q eval: citations >=95%, date-scope >=90%."
+Story: 50-Q evals,"Harness with pass/fail report and timing.",TRIDENT,STORY,"p95 <4s; pass rate >=90%."
+TRIDENT: Demo UI v1,"Chat with inline citations/date; 2-home compare; share link.",TRIDENT,EPIC,"Render <4s p95; links work."
+SENTINEL: Receipts Spine,"Define schema; 3 nudge receipts (sterile cockpit, hydration, duress).",SENTINEL,EPIC,"Receipts: 2 visible cites, 3 logged, p95 <1s, deterministic 5×."
+Story: fairness freeze,"Compute weekly cohort gaps; freeze at >=1.0 pp.",SENTINEL,STORY,"Freeze + alert fires correctly."
