@@ -1,0 +1,20 @@
+name: MG2 (Fall-Risk Loop) Validation
+on:
+  pull_request:
+    branches: ["reset/scaffold"]
+jobs:
+  validate-mg2:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ensure changes are confined to sentinel-app/fall-risk-loop/**
+        run: |
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD || true)
+          echo "$CHANGED"
+          BAD=$(echo "$CHANGED" | grep -vE '^sentinel-app/fall-risk-loop/' | grep -vE '^\.github/workflows/mg2\.yml$' || true)
+          if [ -n "$BAD" ]; then
+            echo "❌ Forbidden changes outside sentinel-app/fall-risk-loop/:"
+            echo "$BAD"
+            exit 1
+          fi
+          echo "✅ Changes confined to sentinel-app/fall-risk-loop/."
