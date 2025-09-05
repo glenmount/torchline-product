@@ -1,0 +1,78 @@
+name: validate-fogbreaker-pulse
+
+on:
+  pull_request:
+    branches: [ reset/scaffold ]
+    paths:
+      - 'fogbreaker-app/pulse/**'
+      - '.github/workflows/validate-fogbreaker-pulse.yml'
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce allowed paths (pulse only)
+        shell: bash
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          head="${{ github.sha }}"
+          git diff --name-only "$base" "$head" > changed.txt
+          if grep -vE '^fogbreaker-app/pulse/' changed.txt | grep -vE '^\.github/workflows/validate-fogbreaker-pulse\.yml$' ; then
+            echo "❌ Forbidden paths changed:" 
+            grep -vE '^fogbreaker-app/pulse/' changed.txt | grep -vE '^\.github/workflows/validate-fogbreaker-pulse\.yml$' 
+            exit 1
+          fi
+          echo "✅ Allowed paths only."
+
+      - name: Validate Top-10 schema
+        shell: bash
+        run: |
+          test -f fogbreaker-app/pulse/rankings/top10.json
+          python - <<'PY'
+import json, sys
+p='fogbreaker-app/pulse/rankings/top10.json'
+d=json.load(open(p))
+assert isinstance(d.get('ranked'), list) and d['ranked'], "ranked[] missing/empty"
+assert 'generated_at' in d, "generated_at missing"
+assert 'preset' in d, "preset missing"
+print("✅ top10.json looks ok")
+PY
+
+      - name: Validate events.jsonl (if present)
+        shell: bash
+        run: |
+          if [ -f fogbreaker-app/pulse/events.jsonl ]; then
+            python - <<'PY'
+import json, sys
+bad=[]
+for i,line in enumerate(open('fogbreaker-app/pulse/events.jsonl','r',encoding='utf-8'),1):
+    s=line.strip()
+    if not s: 
+        continue
+    try:
+        o=json.loads(s)
+    except Exception:
+        bad.append(f"line {i}: invalid JSON")
+        continue
+    for k in ["observed_at","kind","provider_id","source","sha256","size_bytes"]:
+        if k not in o: bad.append(f"line {i}: missing {k}")
+if bad:
+    print("\n".join(bad)); sys.exit(1)
+print("✅ events.jsonl looks ok")
+PY
+          else
+            echo "ℹ️ events.jsonl absent (ok for first PRs)"
+          fi
