@@ -1,18 +1,12 @@
 {
   "generated_at": "1970-01-01T00:00:00Z",
   "preset": "Balanced",
-  "ranked": ["placeholder_provider"],
+  "ranked": ["_placeholder_"],
   "providers": [
     {
-      "provider_id": "placeholder_provider",
-      "score": 0.00,
-      "factors": {
-        "cost": null,
-        "cost_fit": 0.5,
-        "transparency": 0.0,
-        "quality": 0.0,
-        "policy": 0.0
-      }
+      "provider_id": "_placeholder_",
+      "score": 0,
+      "factors": { "cost": null, "cost_fit": 0, "transparency": 0, "quality": 0, "policy": 0 }
     }
   ]
 }
