@@ -1,0 +1,43 @@
+name: FOGBREAKER Pulse v0.1
+
+on:
+  pull_request:
+    branches: ["reset/scaffold"]
+  workflow_dispatch: {}
+
+jobs:
+  validate-pulse:
+    name: Validate Micro-Grant — FOGBREAKER Pulse v0.1
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enforce allowed paths (PR confinement)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          CHANGED="$(git diff --name-only origin/${{ github.base_ref }}...HEAD || true)"
+          echo "$CHANGED"
+          ALLOWED='^(fogbreaker-app/corpus/|fogbreaker-app/pulse/|fogbreaker-app/services/fee_math/fee_math\.py$)'
+          BAD=0
+          for f in $CHANGED; do
+            if ! echo "$f" | grep -Eq "$ALLOWED"; then
+              echo "❌ Forbidden change: $f"
+              BAD=1
+            fi
+          done
+          [ $BAD -eq 0 ] || { echo "Only fogbreaker-app/{corpus|pulse} or fee_math.py allowed."; exit 1; }
+          echo "✅ Allowed paths only."
+
+      - name: Validate Pulse artifacts & replay
+        run: |
+          set -e
+          test -f fogbreaker-app/pulse/rankings/top10.json
+          [ -f fogbreaker-app/pulse/events.jsonl ] || echo "⚠ events.jsonl missing (OK if your pulse creates it)"
+          python - <<'PY'
+          import json
+          with open("fogbreaker-app/pulse/rankings/top10.json", encoding="utf-8") as f:
+            j = json.load(f)
+          assert isinstance(j.get("ranked"), list) and j["ranked"], "rankings/top10.json must have a non-empty 'ranked' list"
+          print("✅ Ranking output present with", len(j["ranked"]), "providers.")
+          PY
