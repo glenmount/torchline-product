@@ -1,0 +1,30 @@
+name: Torchline CI
+
+on:
+  pull_request:
+    branches: ["main", "reset/scaffold"]
+  push:
+    branches: ["main"]
+
+jobs:
+  test-fee-math:
+    name: test-fee-math
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run fee-math tests or noop
+        run: |
+          if [ -f fogbreaker-app/services/fee_math/fee_math.py ]; then
+            python -m pip install --upgrade pip >/dev/null 2>&1 || true
+            # optional: pip install -r fogbreaker-app/services/fee_math/requirements.txt || true
+            python - <<'PY'
+from decimal import Decimal
+import importlib.util
+spec=importlib.util.spec_from_file_location("fee_math", "fogbreaker-app/services/fee_math/fee_math.py")
+m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+assert m.dap_per_day(Decimal("550000"), Decimal("7.78")) == Decimal("117.23"), "fee-math formula/rounding mismatch"
+print("fee-math OK")
+PY
+          else
+            echo "No fee_math.py found; passing (scaffold-only PR)."
+          fi
