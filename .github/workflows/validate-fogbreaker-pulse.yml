@@ -1,4 +1,4 @@
-name: FOGBREAKER Pulse v0.1
+name: validate-fogbreaker-pulse
 
 on:
   pull_request:
