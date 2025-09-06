@@ -9,7 +9,7 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  validate-pulse:
+  validate:
     name: Validate Micro-Grant — FOGBREAKER Pulse v0.1
     runs-on: ubuntu-latest
     steps:
