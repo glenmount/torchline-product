@@ -22,6 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: Enforce allowed paths (pulse/** only)
+        if: ${{ github.event_name == 'pull_request' }}
         run: |
           set -euo pipefail
           ALLOWED='^(fogbreaker-app/pulse/|\.github/workflows/validate-fogbreaker-pulse\.yml$)'
