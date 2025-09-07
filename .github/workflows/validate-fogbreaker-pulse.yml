@@ -25,10 +25,12 @@ jobs:
         run: |
           set -euo pipefail
           ALLOWED='^(fogbreaker-app/pulse/|\.github/workflows/validate-fogbreaker-pulse\.yml$)'
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          git fetch --no-tags --prune origin >/dev/null 2>&1 || true
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch --no-tags --prune origin "${BASE_REF}" >/dev/null 2>&1 || true
+          BASE_SHA="$(git merge-base HEAD "origin/${BASE_REF}")"
+          CHANGED="$(git diff --name-only "${BASE_SHA}"...HEAD || true)"
           BAD=0
-          for f in $(git diff --name-only "$BASE_SHA"...HEAD); do
+          for f in $CHANGED; do
             if ! echo "$f" | grep -Eq "$ALLOWED"; then
               echo "❌ Forbidden change: $f"; BAD=1
             fi
@@ -71,22 +73,20 @@ jobs:
             allowed={"pricing_pdf","admissions_pdf","audit_pdf","complaint_pdf","stars_extract","edit_pdf"}
             for i,line in enumerate(open("fogbreaker-app/pulse/events.jsonl"), start=1):
                 line=line.strip()
-                if not line:
-                    continue
+                if not line: continue
                 try:
-                    o=json.loads(line)
+                  o=json.loads(line)
                 except Exception as e:
-                    problems.append(f"line {i}: invalid JSON ({e})"); ok=False; continue
+                  problems.append(f"line {i}: invalid JSON ({e})"); ok=False; continue
                 req=["observed_at","kind","provider_id","source","sha256","size_bytes"]
                 for k in req:
-                    if k not in o:
-                        problems.append(f"line {i}: missing {k}"); ok=False
+                  if k not in o: problems.append(f"line {i}: missing {k}"); ok=False
                 if "kind" in o and o["kind"] not in allowed:
-                    problems.append(f"line {i}: kind '{o['kind']}' not in {sorted(allowed)}"); ok=False
+                  problems.append(f"line {i}: kind '{o['kind']}' not in {sorted(allowed)}"); ok=False
                 if "sha256" in o and not re.fullmatch(r"[0-9a-f]{64}", str(o["sha256"])):
-                    problems.append(f"line {i}: sha256 must be 64 hex chars"); ok=False
+                  problems.append(f"line {i}: sha256 must be 64 hex chars"); ok=False
             if not ok:
-                print("\\n".join(["❌ events.jsonl issues:"]+problems)); sys.exit(1)
+              print("\\n".join(["❌ events.jsonl issues:"]+problems)); sys.exit(1)
             print("✅ events.jsonl OK or empty")
             PY
           else
