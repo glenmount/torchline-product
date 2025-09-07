@@ -1,4 +1,61 @@
-{"observed_at": "2025-09-07T03:00:41.257197Z", "kind": "edit_pdf", "provider_id": "demo_provider", "source": "corpus/qa_sheet.csv", "sha256": "88662c7140d90acb30f7ac092dd6c4e562fb32aaa027aa27d852e6bbbd0dc42a", "size_bytes": 97}
-{"observed_at": "2025-09-07T03:00:41.257309Z", "kind": "edit_pdf", "provider_id": "demo_provider", "source": "corpus/registry/providers.json", "sha256": "13b33d9b0eb0f3598b0f52ab447d666437a28dbb7969e05b37a675ccbe734ad0", "size_bytes": 22}
-{"observed_at": "2025-09-07T03:02:41.050892Z", "kind": "edit_pdf", "provider_id": "demo_provider", "source": "corpus/qa_sheet.csv", "sha256": "25486dff88fd6445131a752b6770406ae48208197fd572bf484e4633d499b138", "size_bytes": 245}
-{"observed_at": "2025-09-07T03:02:41.050995Z", "kind": "edit_pdf", "provider_id": "demo_provider", "source": "corpus/registry/providers.json", "sha256": "13b33d9b0eb0f3598b0f52ab447d666437a28dbb7969e05b37a675ccbe734ad0", "size_bytes": 22}
+name: validate-fogbreaker-pulse
+
+on:
+  pull_request:
+    branches: ["reset/scaffold"]
+    paths:
+      - "fogbreaker-app/pulse/**"
+      - ".github/workflows/validate-fogbreaker-pulse.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate-pulse:
+    name: Validate Fogbreaker Pulse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Enforce allowed paths (pulse/** only)
+        if: ${{ github.event_name == 'pull_request' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ALLOWED='^fogbreaker-app/pulse/'
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch --no-tags --prune origin "${BASE_REF}" >/dev/null 2>&1 || true
+          BASE_SHA="$(git merge-base HEAD "origin/${BASE_REF}")"
+          CHANGED="$(git diff --name-only "${BASE_SHA}"...HEAD || true)"
+          BAD=0
+          for f in $CHANGED; do
+            if ! echo "$f" | grep -Eq "$ALLOWED"; then
+              echo "❌ Forbidden change: $f"; BAD=1
+            fi
+          done
+          [ $BAD -eq 0 ] || { echo "Only fogbreaker-app/pulse/** may change."; exit 1; }
+          echo "✅ Allowed paths only."
+
+      - name: Validate Top-10 JSON structure
+        run: python .github/scripts/validate_top10.py
+
+      - name: Validate events.jsonl (if present)
+        run: python .github/scripts/validate_events.py
+
+      - name: Require daily digest if receipts exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -s fogbreaker-app/pulse/events.jsonl ]; then
+            ls fogbreaker-app/pulse/ledger/digest-*.json >/dev/null 2>&1 || { echo "❌ No daily digest in pulse/ledger/"; exit 1; }
+            echo "✅ digest present"
+          else
+            echo "No receipts; digest not required."
+          fi
+
+      - name: Optional fee-math sanity check
+        run: python .github/scripts/fee_math_check.py
