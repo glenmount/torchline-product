@@ -18,7 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with:
+          fetch-depth: 0
 
       - name: Enforce allowed paths (pulse/** only)
         run: |
@@ -55,7 +56,8 @@ jobs:
           pids={x.get("provider_id") for x in data["providers"] if isinstance(x, dict)}
           for r in data["ranked"]:
               if r not in pids: problems.append(f"ranked id '{r}' missing from providers[]")
-          if problems: print("\\n".join(["❌ Top-10 issues:"]+problems)); sys.exit(1)
+          if problems:
+              print("\\n".join(["❌ Top-10 issues:"]+problems)); sys.exit(1)
           print("✅ top10.json OK")
           PY
 
@@ -69,17 +71,22 @@ jobs:
             allowed={"pricing_pdf","admissions_pdf","audit_pdf","complaint_pdf","stars_extract","edit_pdf"}
             for i,line in enumerate(open("fogbreaker-app/pulse/events.jsonl"), start=1):
                 line=line.strip()
-                if not line: continue
-                try: o=json.loads(line)
-                except Exception as e: problems.append(f"line {i}: invalid JSON ({e})"); ok=False; continue
+                if not line:
+                    continue
+                try:
+                    o=json.loads(line)
+                except Exception as e:
+                    problems.append(f"line {i}: invalid JSON ({e})"); ok=False; continue
                 req=["observed_at","kind","provider_id","source","sha256","size_bytes"]
                 for k in req:
-                    if k not in o: problems.append(f"line {i}: missing {k}"); ok=False
+                    if k not in o:
+                        problems.append(f"line {i}: missing {k}"); ok=False
                 if "kind" in o and o["kind"] not in allowed:
                     problems.append(f"line {i}: kind '{o['kind']}' not in {sorted(allowed)}"); ok=False
                 if "sha256" in o and not re.fullmatch(r"[0-9a-f]{64}", str(o["sha256"])):
                     problems.append(f"line {i}: sha256 must be 64 hex chars"); ok=False
-            if not ok: print("\\n".join(["❌ events.jsonl issues:"]+problems)); sys.exit(1)
+            if not ok:
+                print("\\n".join(["❌ events.jsonl issues:"]+problems)); sys.exit(1)
             print("✅ events.jsonl OK or empty")
             PY
           else
