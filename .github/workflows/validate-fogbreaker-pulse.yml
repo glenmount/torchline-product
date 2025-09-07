@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY'
+python - <<'PY'
 import json, sys
 p="fogbreaker-app/pulse/rankings/top10.json"
 try:
@@ -75,7 +75,7 @@ PY
         run: |
           set -euo pipefail
           if [ -f fogbreaker-app/pulse/events.jsonl ]; then
-            python - <<'PY'
+python - <<'PY'
 import json, sys, re
 ok=True; problems=[]
 allowed={"pricing_pdf","admissions_pdf","audit_pdf","complaint_pdf","stars_extract","edit_pdf"}
@@ -119,7 +119,7 @@ PY
         shell: bash
         run: |
           if [ -f fogbreaker-app/services/fee_math/fee_math.py ]; then
-            python - <<'PY'
+python - <<'PY'
 from decimal import Decimal
 import importlib.util
 spec=importlib.util.spec_from_file_location("fee_math","fogbreaker-app/services/fee_math/fee_math.py")
