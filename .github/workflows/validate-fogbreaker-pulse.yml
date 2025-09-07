@@ -43,7 +43,7 @@ jobs:
       - name: Validate Top-10 JSON structure
         shell: bash
         run: |
-          set -euo pipefail
+        set -euo pipefail
         python - <<'PY'
 import json, sys
 p="fogbreaker-app/pulse/rankings/top10.json"
@@ -72,8 +72,8 @@ PY
       - name: Validate events.jsonl (if present)
         shell: bash
         run: |
-          set -euo pipefail
-          if [ -f fogbreaker-app/pulse/events.jsonl ]; then
+        set -euo pipefail
+        if [ -f fogbreaker-app/pulse/events.jsonl ]; then
         python - <<'PY'
 import json, sys, re
 ok=True; problems=[]
@@ -117,7 +117,7 @@ PY
       - name: Optional fee-math sanity check
         shell: bash
         run: |
-          if [ -f fogbreaker-app/services/fee_math/fee_math.py ]; then
+        if [ -f fogbreaker-app/services/fee_math/fee_math.py ]; then
         python - <<'PY'
 from decimal import Decimal
 import importlib.util
