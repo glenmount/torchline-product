@@ -2,77 +2,118 @@ name: validate-fogbreaker-pulse
 
 on:
   pull_request:
-    branches: [ reset/scaffold ]
+    branches: ["reset/scaffold"]
     paths:
-      - 'fogbreaker-app/pulse/**'
-      - '.github/workflows/validate-fogbreaker-pulse.yml'
+      - "fogbreaker-app/pulse/**"
+      - ".github/workflows/validate-fogbreaker-pulse.yml"
+  workflow_dispatch: {}
 
 permissions:
   contents: read
   pull-requests: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  validate:
+  validate-pulse:
+    name: Validate Fogbreaker Pulse
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Enforce allowed paths (pulse only)
-        shell: bash
+      - name: Enforce allowed paths (pulse/** only)
         run: |
-          base="${{ github.event.pull_request.base.sha }}"
-          head="${{ github.sha }}"
-          git diff --name-only "$base" "$head" > changed.txt
-          if grep -vE '^fogbreaker-app/pulse/' changed.txt | grep -vE '^\.github/workflows/validate-fogbreaker-pulse\.yml$' ; then
-            echo "❌ Forbidden paths changed:" 
-            grep -vE '^fogbreaker-app/pulse/' changed.txt | grep -vE '^\.github/workflows/validate-fogbreaker-pulse\.yml$' 
-            exit 1
-          fi
+          set -euo pipefail
+          ALLOWED='^(fogbreaker-app/pulse/|\.github/workflows/validate-fogbreaker-pulse\.yml$)'
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          git fetch --no-tags --prune origin "${BASE_REF}" >/dev/null 2>&1 || true
+          BASE_SHA="$(git merge-base HEAD "origin/${BASE_REF}")"
+          CHANGED="$(git diff --name-only "${BASE_SHA}"...HEAD || true)"
+          BAD=0
+          for f in $CHANGED; do
+            if ! echo "$f" | grep -Eq "$ALLOWED"; then
+              echo "❌ Forbidden change: $f"; BAD=1
+            fi
+          done
+          [ $BAD -eq 0 ] || { echo "Only fogbreaker-app/pulse/** and this workflow file may change."; exit 1; }
           echo "✅ Allowed paths only."
 
-      - name: Validate Top-10 schema
-        shell: bash
+      - name: Validate Top-10 JSON structure
         run: |
-          test -f fogbreaker-app/pulse/rankings/top10.json
+          set -euo pipefail
           python - <<'PY'
-import json, sys
-p='fogbreaker-app/pulse/rankings/top10.json'
-d=json.load(open(p))
-assert isinstance(d.get('ranked'), list) and d['ranked'], "ranked[] missing/empty"
-assert 'generated_at' in d, "generated_at missing"
-assert 'preset' in d, "preset missing"
-print("✅ top10.json looks ok")
-PY
+          import json, sys
+          p="fogbreaker-app/pulse/rankings/top10.json"
+          try:
+              data=json.load(open(p))
+          except Exception as e:
+              print(f"Invalid JSON in {p}: {e}"); sys.exit(1)
+          problems=[]
+          for k in ("generated_at","preset","ranked","providers"):
+              if k not in data: problems.append(f"missing key: {k}")
+          if not isinstance(data.get("ranked"), list) or not data["ranked"]:
+              problems.append("ranked[] must be a non-empty list")
+          if not isinstance(data.get("providers"), list) or not data["providers"]:
+              problems.append("providers[] must be a non-empty list")
+          pids={x.get("provider_id") for x in data["providers"] if isinstance(x, dict)}
+          for r in data["ranked"]:
+              if r not in pids: problems.append(f"ranked id '{r}' missing from providers[]")
+          if problems:
+              print("\\n".join(["❌ Top-10 issues:"]+problems)); sys.exit(1)
+          print("✅ top10.json OK")
+          PY
 
       - name: Validate events.jsonl (if present)
-        shell: bash
         run: |
+          set -euo pipefail
           if [ -f fogbreaker-app/pulse/events.jsonl ]; then
             python - <<'PY'
-import json, sys
-bad=[]
-for i,line in enumerate(open('fogbreaker-app/pulse/events.jsonl','r',encoding='utf-8'),1):
-    s=line.strip()
-    if not s: 
-        continue
-    try:
-        o=json.loads(s)
-    except Exception:
-        bad.append(f"line {i}: invalid JSON")
-        continue
-    for k in ["observed_at","kind","provider_id","source","sha256","size_bytes"]:
-        if k not in o: bad.append(f"line {i}: missing {k}")
-if bad:
-    print("\n".join(bad)); sys.exit(1)
-print("✅ events.jsonl looks ok")
-PY
+            import json, sys, re
+            ok=True; problems=[]
+            allowed={"pricing_pdf","admissions_pdf","audit_pdf","complaint_pdf","stars_extract","edit_pdf"}
+            for i,line in enumerate(open("fogbreaker-app/pulse/events.jsonl"), start=1):
+                line=line.strip()
+                if not line: continue
+                try:
+                  o=json.loads(line)
+                except Exception as e:
+                  problems.append(f"line {i}: invalid JSON ({e})"); ok=False; continue
+                req=["observed_at","kind","provider_id","source","sha256","size_bytes"]
+                for k in req:
+                  if k not in o: problems.append(f"line {i}: missing {k}"); ok=False
+                if "kind" in o and o["kind"] not in allowed:
+                  problems.append(f"line {i}: kind '{o['kind']}' not in {sorted(allowed)}"); ok=False
+                if "sha256" in o and not re.fullmatch(r"[0-9a-f]{64}", str(o["sha256"])):
+                  problems.append(f"line {i}: sha256 must be 64 hex chars"); ok=False
+            if not ok:
+              print("\\n".join(["❌ events.jsonl issues:"]+problems)); sys.exit(1)
+            print("✅ events.jsonl OK or empty")
+            PY
           else
-            echo "ℹ️ events.jsonl absent (ok for first PRs)"
+            echo "events.jsonl not found (OK for scaffolds)"
+          fi
+
+      - name: Require daily digest if receipts exist
+        run: |
+          set -euo pipefail
+          if [ -s fogbreaker-app/pulse/events.jsonl ]; then
+            ls fogbreaker-app/pulse/ledger/digest-*.json >/dev/null 2>&1 || { echo "❌ No daily digest in pulse/ledger/"; exit 1; }
+            echo "✅ digest present"
+          else
+            echo "No receipts; digest not required."
+          fi
+
+      - name: Optional fee-math sanity check
+        run: |
+          if [ -f fogbreaker-app/services/fee_math/fee_math.py ]; then
+            python - <<'PY'
+            from decimal import Decimal
+            import importlib.util
+            spec=importlib.util.spec_from_file_location("fee_math","fogbreaker-app/services/fee_math/fee_math.py")
+            m=importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+            assert m.dap_per_day(Decimal("550000"), Decimal("7.78")) == Decimal("117.23"), "fee-math formula/rounding mismatch"
+            print("fee-math OK")
+            PY
+          else
+            echo "No fee_math.py found; passing (scaffold-only PR)."
           fi
