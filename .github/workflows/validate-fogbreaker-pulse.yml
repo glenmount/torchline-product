@@ -69,7 +69,6 @@ if problems:
     sys.exit(1)
 print("✅ top10.json OK")
 PY
-
       - name: Validate events.jsonl (if present)
         shell: bash
         run: |
